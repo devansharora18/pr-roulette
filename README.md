@@ -4,7 +4,7 @@ You have 60 seconds to read a real pull request from a popular open-source repo 
 
 ## How it works
 
-1. A random PR is pulled from a dataset of 1,680 real pull requests across repos like `microsoft/vscode`, `vuejs/vue`, `vitejs/vite`, and more.
+1. A random PR is fetched live from the GitHub API across 28 popular open-source repos (React, Vue, Next.js, VS Code, Linux, and more).
 2. You have 60 seconds to read the title, description, and optionally the diff.
 3. Hit **Accept** (or press `A`) if you think it was merged, **Reject** (or press `R`) if you think it was closed.
 4. The reveal screen shows whether you were right, the actual outcome, and your running stats.
@@ -15,6 +15,17 @@ Stats (accuracy, streak, best streak) are stored locally in `localStorage` — n
 
 ```bash
 npm install
+```
+
+Create a `.env` file with a GitHub personal access token:
+
+```
+GITHUB_TOKEN=ghp_...
+```
+
+Then start the dev server:
+
+```bash
 npm run dev
 ```
 
@@ -38,11 +49,8 @@ app/
   reveal/page.tsx   # Result screen
   stats/page.tsx    # Stats dashboard
   api/
-    pr/random/      # GET — returns a random PR (outcome hidden)
-    vote/           # POST — returns the actual outcome
-  data/prs.json     # Dataset of 1,680 real PRs
+    pr/random/      # GET — fetches a random PR from GitHub (outcome hidden)
+    vote/           # POST — fetches the actual outcome from GitHub
 lib/
-  prs.ts            # PR lookup helpers
+  prs.ts            # Live GitHub API fetching + filtering
   session.ts        # localStorage stats helpers
-  vote.ts           # Vote logic types
-```
