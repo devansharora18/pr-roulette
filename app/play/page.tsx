@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { STATS_KEY } from "@/lib/session";
 
 function diffLineClass(line: string): string {
   if (line.startsWith("+")) return "bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-300";
@@ -83,7 +84,6 @@ export default function PlayPage() {
   const router = useRouter();
   const [state, setState] = useState<PageState>({ status: "loading" });
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -91,7 +91,6 @@ export default function PlayPage() {
     setState({ status: "loading" });
     setTimeLeft(null);
     setSubmitted(false);
-    setReason("");
     try {
       const res = await fetch("/api/pr/random");
       if (!res.ok) throw new Error("Failed to fetch");
@@ -118,16 +117,38 @@ export default function PlayPage() {
       const res = await fetch("/api/vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prId: state.pr.id,
-          repo: state.pr.repo,
+        body: JSON.stringify({ prId: state.pr.id, repo: state.pr.repo }),
+      });
+      const { outcome } = await res.json();
+      const correct = decision !== null && decision === outcome;
+
+      // Update stats in localStorage
+      let stats = { correct: 0, total: 0, streak: 0, best: 0 };
+      try {
+        const raw = localStorage.getItem(STATS_KEY);
+        if (raw) stats = JSON.parse(raw);
+      } catch {}
+      const streak = correct ? stats.streak + 1 : 0;
+      stats = {
+        correct: stats.correct + (correct ? 1 : 0),
+        total: stats.total + 1,
+        streak,
+        best: Math.max(stats.best, streak),
+      };
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+
+      sessionStorage.setItem(
+        "vote_result",
+        JSON.stringify({
+          correct,
+          outcome,
+          stats,
           decision,
-          reason: reason.trim() || undefined,
+          reason: decision === null ? "time's up" : null,
+          url: state.pr.url,
           timeSpent,
         }),
-      });
-      const result = await res.json();
-      sessionStorage.setItem("vote_result", JSON.stringify(result));
+      );
     } catch {
       sessionStorage.setItem("vote_result", JSON.stringify(null));
     }
@@ -165,7 +186,7 @@ export default function PlayPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submitted, state, timeLeft, reason]);
+  }, [submitted, state, timeLeft]);
 
   useEffect(() => {
     fetchPR();
@@ -249,7 +270,7 @@ export default function PlayPage() {
                   onClick={() => handleVote("merged")}
                   className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border-2 border-green-500 bg-green-50 py-3 font-semibold text-green-700 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-green-950 dark:text-green-300"
                 >
-                  Approve
+                  Accept
                   <span className="text-xs font-normal opacity-60">press A</span>
                 </button>
                 <button
@@ -257,17 +278,10 @@ export default function PlayPage() {
                   onClick={() => handleVote("closed")}
                   className="flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border-2 border-red-500 bg-red-50 py-3 font-semibold text-red-700 transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-950 dark:text-red-300"
                 >
-                  Request Changes
+                  Reject
                   <span className="text-xs font-normal opacity-60">press R</span>
                 </button>
               </div>
-              <input
-                disabled={submitted}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="One-liner reason (optional)"
-                className="w-full rounded-lg border border-zinc-200 bg-transparent px-4 py-2.5 text-sm text-foreground placeholder-zinc-400 outline-none focus:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:focus:border-zinc-500"
-              />
             </div>
           </div>
         )}

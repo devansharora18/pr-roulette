@@ -100,7 +100,7 @@ def fetch_diff(repo, pr_number):
     if res.status_code != 200:
         return None
 
-    return res.text[:2000].strip()
+    return res.text[:5000].strip()
 
 
 def fetch_prs(repo, repo_index, total_repos):
@@ -143,7 +143,7 @@ def fetch_prs(repo, repo_index, total_repos):
                 "id": pr["number"],
                 "repo": repo,
                 "title": pr["title"],
-                "body": pr["body"][:600].strip(),
+                "body": pr["body"][:2000].strip(),
                 "diff": diff,
                 "author": pr["user"]["login"],
                 "url": pr["html_url"],

@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { submitVote, type VoteInput } from "@/lib/vote";
+import { getOutcome } from "@/lib/prs";
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as VoteInput;
-  const { prId, repo, decision, reason, timeSpent } = body;
+  const body = await req.json();
+  const { prId, repo } = body as { prId: number; repo: string };
 
-  try {
-    const result = submitVote({ prId, repo, decision, reason, timeSpent });
-    return NextResponse.json(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 400 });
+  const outcome = getOutcome(repo, prId);
+  if (!outcome) {
+    return NextResponse.json({ error: `Unknown PR: ${repo}#${prId}` }, { status: 400 });
   }
+
+  return NextResponse.json({ outcome });
 }
