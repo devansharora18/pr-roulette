@@ -22,7 +22,7 @@
   "observability": {
     "enabled": true
   },
-  "secrets": {
-  	"GITHUB_TOKEN": {}
+  "vars": {
+  	"GITHUB_TOKEN": "placeholder"
   }
 }
