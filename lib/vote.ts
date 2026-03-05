@@ -4,7 +4,7 @@ import { getStats, saveStats, type Stats } from "@/lib/session";
 export type VoteInput = {
   prId: number;
   repo: string;
-  decision: "merged" | "closed";
+  decision: "merged" | "closed" | null;
   reason?: string;
   timeSpent: number;
 };
@@ -19,7 +19,7 @@ export function submitVote({ prId, repo, decision }: VoteInput): VoteResult {
   const outcome = getOutcome(repo, prId);
   if (!outcome) throw new Error(`Unknown PR: ${repo}#${prId}`);
 
-  const correct = decision === outcome;
+  const correct = decision !== null && decision === outcome;
   const prev = getStats();
 
   const streak = correct ? prev.streak + 1 : 0;
