@@ -6,40 +6,283 @@ import remarkGfm from "remark-gfm";
 import { useRouter } from "next/navigation";
 import { STATS_KEY } from "@/lib/session";
 
-function diffLineClass(line: string): string {
-	if (line.startsWith("+"))
-		return "bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-300";
-	if (line.startsWith("-"))
-		return "bg-red-50 text-red-900 dark:bg-red-950 dark:text-red-300";
-	if (line.startsWith("@@")) return "text-zinc-400 dark:text-zinc-500";
-	return "text-zinc-700 dark:text-zinc-300";
+type DiffLine = {
+	type: "add" | "del" | "context" | "hunk";
+	content: string;
+	oldNum: number | null;
+	newNum: number | null;
+};
+
+type FileDiff = {
+	filename: string;
+	additions: number;
+	deletions: number;
+	lines: DiffLine[];
+};
+
+function parseDiff(raw: string): FileDiff[] {
+	const files: FileDiff[] = [];
+	const rawLines = raw.split("\n");
+	let current: FileDiff | null = null;
+	let oldLine = 0;
+	let newLine = 0;
+
+	for (let i = 0; i < rawLines.length; i++) {
+		const line = rawLines[i];
+
+		// New file header
+		if (line.startsWith("diff --git")) {
+			// extract filename from "diff --git a/path b/path"
+			const match = line.match(/diff --git a\/.+ b\/(.+)/);
+			current = {
+				filename: match ? match[1] : "unknown",
+				additions: 0,
+				deletions: 0,
+				lines: [],
+			};
+			files.push(current);
+			continue;
+		}
+
+		// Skip other header lines (index, ---, +++)
+		if (!current) continue;
+		if (
+			line.startsWith("index ") ||
+			line.startsWith("---") ||
+			line.startsWith("+++")
+		)
+			continue;
+		if (
+			line.startsWith("new file") ||
+			line.startsWith("deleted file") ||
+			line.startsWith("old mode") ||
+			line.startsWith("new mode") ||
+			line.startsWith("similarity") ||
+			line.startsWith("rename") ||
+			line.startsWith("Binary")
+		)
+			continue;
+
+		// Hunk header
+		const hunkMatch = line.match(
+			/^@@\s+-(\d+)(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@(.*)/,
+		);
+		if (hunkMatch) {
+			oldLine = parseInt(hunkMatch[1], 10);
+			newLine = parseInt(hunkMatch[2], 10);
+			current.lines.push({
+				type: "hunk",
+				content: line,
+				oldNum: null,
+				newNum: null,
+			});
+			continue;
+		}
+
+		if (line.startsWith("+")) {
+			current.additions++;
+			current.lines.push({
+				type: "add",
+				content: line.slice(1),
+				oldNum: null,
+				newNum: newLine++,
+			});
+		} else if (line.startsWith("-")) {
+			current.deletions++;
+			current.lines.push({
+				type: "del",
+				content: line.slice(1),
+				oldNum: oldLine++,
+				newNum: null,
+			});
+		} else if (line.startsWith(" ") || line === "") {
+			current.lines.push({
+				type: "context",
+				content: line.startsWith(" ") ? line.slice(1) : line,
+				oldNum: oldLine++,
+				newNum: newLine++,
+			});
+		}
+	}
+
+	return files;
+}
+
+function FileDiffCard({
+	file,
+	forceOpen,
+}: {
+	file: FileDiff;
+	forceOpen: boolean | null;
+}) {
+	const [open, setOpen] = useState(true);
+
+	useEffect(() => {
+		if (forceOpen !== null) setOpen(forceOpen);
+	}, [forceOpen]);
+	const total = file.additions + file.deletions;
+	const maxBlocks = 5;
+	const addBlocks =
+		total === 0 ? 0 : Math.round((file.additions / total) * maxBlocks);
+	const delBlocks = Math.min(maxBlocks - addBlocks, maxBlocks);
+
+	return (
+		<div className="rounded-lg border border-zinc-700 overflow-hidden">
+			{/* File header */}
+			<button
+				onClick={() => setOpen((o) => !o)}
+				className="flex w-full items-center gap-3 bg-zinc-800 px-4 py-2.5 text-left hover:bg-zinc-750"
+			>
+				<span className="text-xs text-zinc-500">{open ? "▼" : "▶"}</span>
+				<span className="flex-1 truncate font-mono text-xs text-zinc-300">
+					{file.filename}
+				</span>
+				<span className="flex items-center gap-2 text-xs shrink-0">
+					{file.additions > 0 && (
+						<span className="text-green-400">+{file.additions}</span>
+					)}
+					{file.deletions > 0 && (
+						<span className="text-red-400">-{file.deletions}</span>
+					)}
+					<span className="flex gap-px ml-1">
+						{Array.from({ length: maxBlocks }).map((_, i) => (
+							<span
+								key={i}
+								className={`inline-block h-2 w-2 rounded-sm ${
+									i < addBlocks
+										? "bg-green-500"
+										: i < addBlocks + delBlocks
+											? "bg-red-500"
+											: "bg-zinc-600"
+								}`}
+							/>
+						))}
+					</span>
+				</span>
+			</button>
+
+			{/* Diff lines */}
+			{open && (
+				<div className="overflow-x-auto">
+					<table className="w-full border-collapse font-mono text-xs leading-5">
+						<tbody>
+							{file.lines.map((line, i) => {
+								if (line.type === "hunk") {
+									return (
+										<tr key={i} className="bg-blue-950/40">
+											<td className="w-10 select-none border-r border-zinc-700 px-2 text-right text-zinc-600">
+												…
+											</td>
+											<td className="w-10 select-none border-r border-zinc-700 px-2 text-right text-zinc-600">
+												…
+											</td>
+											<td className="px-4 py-0.5 text-blue-400">
+												{line.content}
+											</td>
+										</tr>
+									);
+								}
+
+								const rowBg =
+									line.type === "add"
+										? "bg-green-950/30"
+										: line.type === "del"
+											? "bg-red-950/30"
+											: "";
+
+								const numBg =
+									line.type === "add"
+										? "bg-green-950/50"
+										: line.type === "del"
+											? "bg-red-950/50"
+											: "";
+
+								const textColor =
+									line.type === "add"
+										? "text-green-300"
+										: line.type === "del"
+											? "text-red-300"
+											: "text-zinc-400";
+
+								const prefix =
+									line.type === "add" ? "+" : line.type === "del" ? "-" : " ";
+
+								return (
+									<tr key={i} className={rowBg}>
+										<td
+											className={`w-10 select-none border-r border-zinc-700/50 px-2 text-right text-zinc-600 ${numBg}`}
+										>
+											{line.oldNum ?? ""}
+										</td>
+										<td
+											className={`w-10 select-none border-r border-zinc-700/50 px-2 text-right text-zinc-600 ${numBg}`}
+										>
+											{line.newNum ?? ""}
+										</td>
+										<td className={`whitespace-pre px-4 py-0 ${textColor}`}>
+											<span className="select-none opacity-50">{prefix}</span>
+											{line.content}
+										</td>
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
+			)}
+		</div>
+	);
 }
 
 function DiffViewer({ diff }: { diff: string }) {
-	const [open, setOpen] = useState(false);
-	const lines = diff.split("\n");
+	const [forceOpen, setForceOpen] = useState<boolean | null>(null);
+	const files = parseDiff(diff);
+	const totalAdditions = files.reduce((s, f) => s + f.additions, 0);
+	const totalDeletions = files.reduce((s, f) => s + f.deletions, 0);
 
 	return (
-		<div className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-			<button
-				onClick={() => setOpen((o) => !o)}
-				className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-zinc-600 hover:text-foreground dark:text-zinc-400 dark:hover:text-foreground"
-			>
-				<span>Diff</span>
-				<span className="text-xs">{open ? "Hide ▲" : "Show ▼"}</span>
-			</button>
-
-			{open && (
-				<div className="overflow-x-auto border-t border-zinc-200 dark:border-zinc-800">
-					<pre className="p-0 text-xs leading-5 font-mono">
-						{lines.map((line, i) => (
-							<div key={i} className={`px-4 ${diffLineClass(line)}`}>
-								{line || " "}
-							</div>
-						))}
-					</pre>
+		<div className="flex flex-col gap-3">
+			{/* Summary bar */}
+			<div className="flex items-center justify-between">
+				<p className="text-sm text-zinc-400">
+					Showing{" "}
+					<span className="font-semibold text-zinc-200">
+						{files.length} changed file{files.length !== 1 && "s"}
+					</span>{" "}
+					with{" "}
+					<span className="text-green-400 font-semibold">
+						{totalAdditions} addition{totalAdditions !== 1 && "s"}
+					</span>{" "}
+					and{" "}
+					<span className="text-red-400 font-semibold">
+						{totalDeletions} deletion{totalDeletions !== 1 && "s"}
+					</span>
+				</p>
+				<div className="flex gap-2">
+					<button
+						onClick={() => setForceOpen(true)}
+						className="text-xs text-blue-400 hover:text-blue-300"
+					>
+						Expand all
+					</button>
+					<span className="text-xs text-zinc-600">|</span>
+					<button
+						onClick={() => setForceOpen(false)}
+						className="text-xs text-blue-400 hover:text-blue-300"
+					>
+						Collapse all
+					</button>
 				</div>
-			)}
+			</div>
+
+			{/* Per-file diffs */}
+			{files.map((file, i) => (
+				<FileDiffCard
+					key={`${file.filename}-${i}`}
+					file={file}
+					forceOpen={forceOpen}
+				/>
+			))}
 		</div>
 	);
 }
@@ -213,7 +456,7 @@ export default function PlayPage() {
 
 	return (
 		<div className="min-h-screen bg-background px-6 py-12">
-			<div className="mx-auto max-w-2xl">
+			<div className="mx-auto max-w-4xl">
 				{state.status === "loading" && <LoadingSkeleton />}
 
 				{state.status === "error" && (
