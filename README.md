@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PR Roulette
 
-## Getting Started
+You have 60 seconds to read a real pull request from a popular open-source repo and decide: **Accept** or **Reject**. Submit your verdict and find out if you would have called it right.
 
-First, run the development server:
+## How it works
+
+1. A random PR is pulled from a dataset of 1,680 real pull requests across repos like `microsoft/vscode`, `vuejs/vue`, `vitejs/vite`, and more.
+2. You have 60 seconds to read the title, description, and optionally the diff.
+3. Hit **Accept** (or press `A`) if you think it was merged, **Reject** (or press `R`) if you think it was closed.
+4. The reveal screen shows whether you were right, the actual outcome, and your running stats.
+
+Stats (accuracy, streak, best streak) are stored locally in `localStorage` — no account needed.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Routes
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/play` | Active game — timer, PR viewer, diff, vote buttons |
+| `/reveal` | Result screen — correct/incorrect, outcome, stats |
+| `/stats` | All-time stats dashboard |
 
-## Learn More
+## Project structure
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/
+  page.tsx          # Landing page
+  play/page.tsx     # Game screen
+  reveal/page.tsx   # Result screen
+  stats/page.tsx    # Stats dashboard
+  api/
+    pr/random/      # GET — returns a random PR (outcome hidden)
+    vote/           # POST — returns the actual outcome
+  data/prs.json     # Dataset of 1,680 real PRs
+lib/
+  prs.ts            # PR lookup helpers
+  session.ts        # localStorage stats helpers
+  vote.ts           # Vote logic types
+```
