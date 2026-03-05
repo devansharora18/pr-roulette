@@ -51,7 +51,8 @@ export type PR = {
 function headers() {
   const h: Record<string, string> = {
     Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
+		"X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "pr-roulette",
   };
   const token = process.env.GITHUB_TOKEN;
   if (token) h.Authorization = `Bearer ${token}`;
