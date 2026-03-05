@@ -122,6 +122,12 @@ export default function RevealPage() {
             >
               My Stats
             </Link>
+            <Link
+              href="/"
+              className="text-zinc-500 underline-offset-2 hover:text-foreground hover:underline dark:text-zinc-400"
+            >
+              ← Home
+            </Link>
           </div>
         </div>
       </div>
