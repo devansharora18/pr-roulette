@@ -86,6 +86,7 @@ export default function PlayPage() {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fetchedRef = useRef(false);
 
   async function fetchPR() {
     setState({ status: "loading" });
@@ -189,6 +190,8 @@ export default function PlayPage() {
   }, [submitted, state, timeLeft]);
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     fetchPR();
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
