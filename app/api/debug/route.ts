@@ -18,3 +18,4 @@ export async function GET() {
     githubStatus: res.status,
     rateLimit: data
   })
+}
