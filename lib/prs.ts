@@ -88,9 +88,11 @@ export async function getRandomPR(): Promise<PR> {
 		`https://api.github.com/repos/${repo}/pulls?state=closed&per_page=30&page=${page}`,
 		{ headers: headers() },
 	);
+	
+	console.log(res)
 
 	if (!res.ok) {
-		console.log(res)
+		console.log(res.status, await res.text());
 		throw new Error(`GitHub API error: ${res.status}`);
 	}
 
