@@ -101,7 +101,14 @@ export async function getRandomPR(): Promise<PR> {
 		throw new Error("No interesting PRs found, try again");
 	}
 
-	const pr = interesting[Math.floor(Math.random() * interesting.length)];
+	// 50/50 split: target merged or rejected PRs
+	const wantMerged = Math.random() < 0.5;
+	const filtered = interesting.filter((pr) =>
+		wantMerged ? pr.merged_at !== null : pr.merged_at === null,
+	);
+	const pool = filtered.length > 0 ? filtered : interesting;
+
+	const pr = pool[Math.floor(Math.random() * pool.length)];
 	const diff = await fetchDiff(repo, pr.number);
 
 	return {
