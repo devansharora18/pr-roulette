@@ -90,6 +90,7 @@ export async function getRandomPR(): Promise<PR> {
 	);
 
 	if (!res.ok) {
+		console.log(res)
 		throw new Error(`GitHub API error: ${res.status}`);
 	}
 
